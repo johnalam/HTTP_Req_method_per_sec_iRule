@@ -1,0 +1,25 @@
+when HTTP_REQUEST {
+    set current 0
+    switch [HTTP::method] {
+        "DELETE"  {
+            table delete max_posts_per_sec
+            HTTP::respond 200 content "\nRESET Mas RPS:  [virtual name] POST rate: Max [table lookup max_posts_per_sec]   Now: $current\n\n"
+        }
+        "POST"  {
+            set current [table lookup posts]
+            if { $current > [table lookup max_posts_per_sec] } {
+                table set max_posts_per_sec $current indefinite indefinite
+                ISTATS::set "ltm.virtual [virtual name] string Max_posts_per_sec" $current
+            } else {
+                if { $current equals "" } {
+                    table set posts 1 1 1
+                } else {
+                    table incr posts
+                }
+            }
+        }
+        "OPTIONS" {
+            HTTP::respond 200 content "\n[virtual name] POST rate: Max [table lookup max_posts_per_sec]   Now: $current\n\n"
+        }
+    }   
+}
